@@ -2,75 +2,102 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="manifest" href="manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AZRA'S GARDEN</title>
     <style>
-        body { margin: 0; height: 100vh; overflow: hidden; background: #222; background-size: cover; background-position: center; transition: background 0.8s ease; }
-        #hud { position: fixed; top: 0; width: 100%; height: 60px; background: rgba(0,0,0,0.7); color: #ffd700; display: flex; justify-content: space-around; align-items: center; z-index: 1000; font-family: sans-serif; }
-        #pile { position: relative; width: 100vw; height: 100vh; }
-        .tile { position: absolute; width: 80px; height: 80px; background: #fff; border-radius: 12px; border: 2px solid #ddd; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer; transition: transform 0.2s; }
-        .tile.flipped { border-color: #ffd700; transform: scale(1.05); }
-        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; justify-content: center; align-items: center; color: white; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; touch-action: none; }
+        #hud { position: fixed; top: 0; width: 100%; height: 60px; background: #222; display: flex; justify-content: space-around; align-items: center; z-index: 100; border-bottom: 2px solid #FFD700; }
+        #game-area { position: relative; width: 100vw; height: calc(100vh - 60px); margin-top: 60px; }
+        .tile { position: absolute; width: 60px; height: 60px; border: 5px solid #FFD700; border-radius: 18px; cursor: pointer; transition: transform 0.2s; box-shadow: 4px 4px 10px rgba(0,0,0,0.5); }
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; display: none; justify-content: center; align-items: center; }
     </style>
 </head>
 <body>
-    <div id="hud">
-        <span>IQ: <span id="iq">100</span></span>
-        <span>Rank: Master</span>
-        <span>Rules: Match symbols to clear the pile.</span>
-    </div>
-    <div id="pile"></div>
-    <div id="overlay">
-        <h2>Stage Failed</h2>
-        <button onclick="initStage()">Restart</button>
-        <button onclick="nextStage()">Skip</button>
-    </div>
+
+<div id="hud">
+    <div id="iq">IQ: 100</div>
+    <div id="stage">Stage: 1</div>
+    <button onclick="toggleLibrary()">Library</button>
+</div>
+
+<div id="game-area"></div>
+<div id="overlay"></div>
+
 <script>
-    let stage = 1, mistakes = 0, flipped = [], lock = false;
-    const pile = document.getElementById('pile');
-    
-    function initStage() {
-        document.getElementById('overlay').style.display = 'none';
-        document.body.style.backgroundImage = 'none';
-        pile.innerHTML = ''; flipped = []; mistakes = 0;
-        let count = 20 + (stage * 4);
-        let symbols = Array.from({length: count/2}, (_, i) => i);
-        let tiles = [...symbols, ...symbols].sort(() => Math.random() - 0.5);
+    const state = { stage: 1, iq: 100, lives: 3, matched: [], tiles: [] };
+    const gameArea = document.getElementById('game-area');
+
+    // Initialize the game
+    async function initGame() {
+        // Load master image and slice
+        const img = new Image();
+        img.src = 'P50.png';
+        await img.decode();
         
-        tiles.forEach((val, i) => {
-            let div = document.createElement('div');
-            div.className = 'tile'; div.innerText = val; // Replace with your icon logic
-            div.style.left = Math.random() * (window.innerWidth - 100) + 'px';
-            div.style.top = (Math.random() * (window.innerHeight - 150) + 70) + 'px';
-            div.style.transform = `rotate(${Math.random() * 30 - 15}deg)`;
-            div.onclick = () => flip(div);
-            pile.appendChild(div);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const w = img.width / 7, h = img.height / 7;
+        
+        for(let i=0; i<49; i++) {
+            canvas.width = w; canvas.height = h;
+            ctx.drawImage(img, (i%7)*w, Math.floor(i/7)*h, w, h, 0, 0, w, h);
+            state.tiles.push(canvas.toDataURL());
+        }
+        renderStage();
+    }
+
+    function renderStage() {
+        gameArea.innerHTML = '';
+        let numTiles = 10 + (4 * state.stage);
+        let selection = state.tiles.slice(0, numTiles/2);
+        let deck = [...selection, ...selection].sort(() => Math.random() - 0.5);
+
+        deck.forEach((src, idx) => {
+            const el = document.createElement('div');
+            el.className = 'tile';
+            el.style.backgroundImage = `url(${src})`;
+            el.style.left = Math.random() * (window.innerWidth - 70) + 'px';
+            el.style.top = Math.random() * (window.innerHeight - 130) + 'px';
+            el.style.transform = `rotate(${(Math.random()*40)-20}deg)`;
+            el.onclick = () => handleTap(el, src);
+            gameArea.appendChild(el);
         });
     }
 
-    function flip(tile) {
-        if (lock || tile.classList.contains('flipped')) return;
-        tile.classList.add('flipped');
-        flipped.push(tile);
-        if (flipped.length === 2) {
-            lock = true;
-            if (flipped[0].innerText === flipped[1].innerText) {
-                flipped.forEach(t => t.style.visibility = 'hidden');
-                flipped = []; lock = false;
-                if (pile.querySelectorAll('.tile[style*="visibility: hidden"]').length === pile.children.length) nextStage();
-            } else {
-                mistakes++;
-                if (mistakes >= 3) document.getElementById('overlay').style.display = 'flex';
-                else setTimeout(() => { flipped.forEach(t => t.classList.remove('flipped')); flipped = []; lock = false; }, 800);
-            }
+    let selected = [];
+    function handleTap(el, src) {
+        if(selected.length >= 2) return;
+        el.style.borderColor = '#fff';
+        selected.push({el, src});
+        
+        if(selected.length === 2) {
+            setTimeout(() => {
+                if(selected[0].src === selected[1].src) {
+                    selected.forEach(s => s.el.style.visibility = 'hidden');
+                    state.iq += 15;
+                } else {
+                    selected.forEach(s => s.el.style.borderColor = '#FFD700');
+                    state.lives--;
+                    state.iq = Math.max(50, state.iq - 5);
+                }
+                selected = [];
+                updateHUD();
+            }, 600);
         }
     }
 
-    function nextStage() {
-        document.body.style.backgroundImage = `url('${stage}.png')`;
-        stage++;
-        if (stage > 10) alert("Test Complete!"); else initStage();
+    function updateHUD() {
+        document.getElementById('iq').innerText = `IQ: ${state.iq}`;
+        if(state.lives <= 0) alert("Game Over! Restarting...");
     }
-    initStage();
+
+    function toggleLibrary() {
+        const overlay = document.getElementById('overlay');
+        overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
+        overlay.innerHTML = '<h1>Library</h1><button onclick="toggleLibrary()">Close</button>';
+    }
+
+    initGame();
 </script>
 </body>
 </html>
