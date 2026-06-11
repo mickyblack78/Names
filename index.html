@@ -1,1 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { text-align: center; font-family: sans-serif; background: #222; color: #fff; background-size: cover; background-position: center; transition: background 0.5s ease; margin: 0; }
+        #status { padding: 20px; font-size: 24px; }
+        #grid { display: grid; grid-template-columns: repeat(6, 80px); gap: 10px; justify-content: center; margin-top: 20px; }
+        .tile { width: 80px; height: 80px; background: #555; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 4px; }
+        .tile.flipped { background: #fff; color: #000; }
+        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); flex-direction: column; justify-content: center; align-items: center; }
+        button { padding: 15px 30px; margin: 10px; font-size: 18px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2 id="status">Stage 1: Find the Pairs</h2>
+    <div id="grid"></div>
+    <div id="overlay">
+        <h2>Game Over!</h2>
+        <button onclick="initStage()">Restart Stage</button>
+        <button onclick="nextStage()">Skip Stage</button>
+    </div>
+<script>
+    let stage = 1, mistakes = 0, flipped = [], lock = false;
+    const grid = document.getElementById('grid'), overlay = document.getElementById('overlay');
+    
+    function initStage() {
+        overlay.style.display = 'none'; mistakes = 0; grid.innerHTML = ''; flipped = []; lock = false;
+        let pairs = 10 + (stage * 2);
+        let tiles = [...Array(pairs).keys(), ...Array(pairs).keys()].sort(() => Math.random() - 0.5);
+        tiles.forEach(val => {
+            let div = document.createElement('div');
+            div.className = 'tile'; div.dataset.val = val;
+            div.onclick = () => flip(div);
+            grid.appendChild(div);
+        });
+    }
 
+    function flip(tile) {
+        if (lock || tile.classList.contains('flipped')) return;
+        tile.classList.add('flipped'); tile.innerText = tile.dataset.val;
+        flipped.push(tile);
+        if (flipped.length === 2) {
+            lock = true;
+            if (flipped[0].dataset.val === flipped[1].dataset.val) {
+                flipped = []; lock = false;
+                if (document.querySelectorAll('.flipped').length === grid.children.length) nextStage();
+            } else {
+                mistakes++;
+                if (mistakes >= 3) { overlay.style.display = 'flex'; }
+                else { setTimeout(() => { flipped.forEach(t => { t.classList.remove('flipped'); t.innerText = ''; }); flipped = []; lock = false; }, 1000); }
+            }
+        }
+    }
+
+    function nextStage() {
+        document.body.style.backgroundImage = `url('${stage}.png')`;
+        stage++;
+        if (stage > 10) { alert("Game Complete! Final IQ: 200"); location.reload(); }
+        else { document.getElementById('status').innerText = "Stage " + stage; initStage(); }
+    }
+
+    initStage();
+</script>
+</body>
+</html>
