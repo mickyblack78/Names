@@ -1,1 +1,20 @@
-
+{
+  "name": "IQ Tile Matcher",
+  "short_name": "IQMatch",
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "background_color": "#222222",
+  "theme_color": "#222222",
+  "icons": [
+    { "src": "1.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "2.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "3.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "4.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "5.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "6.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "7.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "8.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "9.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "10.png", "sizes": "192x192", "type": "image/png" }
+  ]
+}
