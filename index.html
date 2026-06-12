@@ -96,6 +96,8 @@
     }
 
     async function initGame() {
+        const snap = JSON.parse(localStorage.getItem('azraSnap'));
+if(snap) { state.stage = snap.s; state.iq = snap.i; state.keys = snap.k; }
         const p = document.getElementById('progress');
         const updateProg = (val) => { p.style.width = val + '%'; };
 
@@ -240,6 +242,7 @@
         db.set('keys', state.keys);
         db.set('chestCycle', state.chestCycle);
         db.set('player', state.player);
+        localStorage.setItem('azraSnap', JSON.stringify({s: state.stage, i: state.iq, k: state.keys}));
     }
 
     function updateHUD() {
