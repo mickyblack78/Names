@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AZRA'S GARDEN</title>
+    <style>
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; touch-action: none; }
+        #start-screen, #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #hud { position: fixed; top: 0; width: 100%; height: 60px; background: #222; display: none; justify-content: space-around; align-items: center; z-index: 100; border-bottom: 2px solid #FFD700; }
+        #game-area { position: relative; width: 100vw; height: calc(100dvh - 60px - env(safe-area-inset-bottom)); margin-top: 60px; overflow: hidden; display: none; }
+        .tile { position: absolute; width: 15vw; height: 15vw; border: 2px solid #FFD700; border-radius: 10px; cursor: pointer; transition: transform 0.2s; background-size: cover; background-position: center; }
+        #loading-bar { width: 80%; height: 20px; border: 2px solid #fff; margin: 20px; }
+        #progress { width: 0%; height: 100%; background: #FFD700; }
+        #lib-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 20px; width: 90vw; }
+        #lib-grid img { width: 100%; height: auto; border: 1px solid #555; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h1>AZRA'S GARDEN</h1>
+    <input type="text" id="playerName" placeholder="Enter your name">
+    <button onclick="startGame()">ENTER GARDEN</button>
+    <div id="loading-bar"><div id="progress"></div></div>
+</div>
+
+<div id="hud">
+    <div id="iq">IQ: 100</div>
+    <div id="stage">Stage: 1</div>
+    <button onclick="toggleLibrary()">Library</button>
+    <input type="range" id="volSlider" min="0" max="1" step="0.1" value="0.5" oninput="updateVolume(this.value)">
+</div>
+
+<div id="game-area"></div>
+<div id="overlay" style="display:none;"></div>
+
+<script>
+    const state = { stage: 1, iq: 100, lives: 3, tiles: [], rewardPool: [], library: JSON.parse(localStorage.getItem('azraLibrary') || '[]'), active: false };
+    const sounds = { bgm: new Audio('bgm.mp3'), ping: new Audio('ping.wav'), win: new Audio('success.mp3') };
+    sounds.bgm.loop = true;
+
+    async function startGame() {
+        const name = document.getElementById('playerName').value;
+        if(!name) return alert("Please enter a name!");
+        localStorage.setItem('azraPlayer', name);
+        
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('hud').style.display = 'flex';
+        document.getElementById('game-area').style.display = 'block';
+        
+        sounds.bgm.volume = document.getElementById('volSlider').value;
+        sounds.bgm.play();
+        
+        await initGame();
+    }
+
+    async function initGame() {
+        const p = document.getElementById('progress');
+        const img = new Image(); img.src = 'P50.png';
+        const img2 = new Image(); img2.src = 'A2.png';
+        
+        let loaded = 0;
+        [img, img2].forEach(i => i.onload = () => { loaded++; p.style.width = (loaded * 50) + '%'; });
+        await Promise.all([img.decode(), img2.decode()]);
+        
+        // ... (Image Slicing Logic remains the same)
+        renderStage();
+    }
+
+    function playSound(type) {
+        const s = sounds[type].cloneNode();
+        s.volume = document.getElementById('volSlider').value;
+        s.play();
+    }
+
+    function updateVolume(val) { sounds.bgm.volume = val; }
+
+    function handleTap(el, src) {
+        if(!state.active || selected.length >= 2) return;
+        playSound('ping');
+        // ... (Rest of matching logic remains the same, calling playSound('win') on match)
+    }
+
+    // [Remainder of your renderStage, completeStage, and toggleLibrary functions stay here]
+</script>
+</body>
+</html>
