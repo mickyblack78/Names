@@ -7,8 +7,15 @@
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; touch-action: none; }
         #hud { position: fixed; top: 0; width: 100%; height: 60px; background: #222; display: flex; justify-content: space-around; align-items: center; z-index: 100; border-bottom: 2px solid #FFD700; }
-        #game-area { position: relative; width: 100vw; height: calc(100vh - 60px); margin-top: 60px; }
-        .tile { position: absolute; width: 60px; height: 60px; border: 5px solid #FFD700; border-radius: 18px; cursor: pointer; transition: transform 0.2s; box-shadow: 4px 4px 10px rgba(0,0,0,0.5); }
+        #game-area {
+    position: relative;
+    width: 100vw;
+    /* Use the browser's defined safe area to prevent Android bar overlap */
+    height: calc(100dvh - 60px - env(safe-area-inset-bottom));
+    margin-top: 60px;
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow: hidden;
+       } 
         #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; display: none; justify-content: center; align-items: center; flex-direction: column; }
         #lib-grid { display: grid; grid-template-columns: repeat(5, 60px); gap: 5px; }
         #lib-grid img { width: 60px; height: 60px; border: 1px solid #555; }
@@ -109,7 +116,8 @@
         localStorage.setItem('azraLibrary', JSON.stringify(state.library));
         
         const overlay = document.getElementById('overlay');
-        overlay.innerHTML = `<img src="${piece}" style="max-width:90%; max-height:90%; object-fit:contain;">`;
+        // In your completeStage() function:
+        overlay.innerHTML = `<img src="${piece}" style="width:100vw; height:100vh; object-fit:fill; display:block;">`;
         overlay.style.display = 'flex';
         setTimeout(() => {
             overlay.style.display = 'none';
