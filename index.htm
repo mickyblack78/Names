@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AZRA'S GARDEN</title>
+    <style>
+        body { background-image: url('star.png'); background-size: cover; background-position: center; background-repeat: no-repeat; margin: 0; overflow: hidden; font-family: sans-serif; }
+        #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
+        #hud { position: fixed; top: 0; width: 100%; height: 60px; background: #222; display: none; justify-content: space-around; align-items: center; z-index: 100; border-bottom: 2px solid #FFD700; color: #FFD700; }
+        #game-area { position: relative; width: 100vw; height: calc(100dvh - 60px); margin-top: 60px; overflow: hidden; display: none; }
+        .tile { position: absolute; width: 15vw; height: 15vw; border: 2px solid #FFD700; border-radius: 10px; cursor: pointer; transition: transform 0.2s; background-size: cover; background-position: center; }
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; display: none; justify-content: center; align-items: center; flex-direction: column; color: white; overflow-y: auto; padding: 20px; box-sizing: border-box; }
+        #lib-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 20px; width: 90vw; }
+        #lib-grid img { width: 100%; height: auto; border: 1px solid #555; cursor: pointer; }
+        #loading-bar { width: 80%; height: 20px; border: 2px solid #fff; margin: 20px; }
+        #progress { width: 0%; height: 100%; background: #FFD700; }
+        .chest { width: 100px; cursor: pointer; transition: transform 0.2s; }
+        .chest:hover { transform: scale(1.1); }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h1>AZRA'S GARDEN</h1>
+    <input type="text" id="playerName" placeholder="Enter your name">
+    <button onclick="startGame()" style="padding: 10px 20px; margin-top: 10px; cursor: pointer;">ENTER GARDEN</button>
+    <div id="loading-bar"><div id="progress"></div></div>
+</div>
+
+<div id="hud">
+    <div id="iq">IQ: 100</div>
+    <div id="lives">Lives: 3</div>
+    <div id="stage">Stage: 1</div>
+    <div id="keys-display" onclick="showChests()" style="cursor:pointer; font-weight:bold; border: 1px solid #FFD700; padding: 5px;">Keys: 0</div>
+    <button onclick="toggleLibrary()">Library</button>
+    <input type="range" id="volSlider" min="0" max="1" step="0.1" value="0.5" oninput="updateVolume(this.value)">
+</div>
+
+<div id="game-area"></div>
+<div id="overlay"></div>
+
+<script>
+    // --- DATABASE HANDLER ---
+    const db = {
+        get: (k) => new Promise(r => {
+            let req = indexedDB.open("AzraDB", 1);
+            req.onupgradeneeded = () => req.result.createObjectStore("store");
+            req.onsuccess = () => {
+                let t = req.result.transaction("store", "readonly").objectStore("store").get(k);
+                t.onsuccess = () => r(t.result);
+            };
+        }),
+        set: (k, v) => {
+            let req = indexedDB.open("AzraDB", 1);
+            req.onupgradeneeded = () => req.result.createObjectStore("store");
+            req.onsuccess = () => req.result.transaction("store", "readwrite").objectStore("store").put(v, k);
+        }
+    };
+
+    // --- GAME STATE ---
+    let state = { 
+        stage: 1, iq: 100, lives: 3, keys: 0, chestCycle: 0,
+        tiles: [], rewardPool: [], chestPool: [], library: [], 
+        player: '', active: false 
+    };
+
+    const sounds = { 
+        bgm: new Audio('bgm.mp3'), 
+        ping: new Audio('ping.wav'), 
+        win: new Audio('success.mp3'),
+        creak: new Audio('creak.mp3')
+    };
+
+    async function startGame() {
+        const nameInput = document.getElementById('playerName').value;
+        state.player = nameInput || await db.get('player') || "Gardener";
+        
+        // Load Saved State
+        state.stage = await db.get('stage') || 1;
+        state.iq = await db.get('iq') || 100;
+        state.library = await db.get('library') || [];
+        state.keys = await db.get('keys') || 0;
+        state.chestCycle = await db.get('chestCycle') || 0;
+
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('hud').style.display = 'flex';
+        document.getElementById('game-area').style.display = 'block';
+        
+        updateHUD();
+        sounds.bgm.loop = true;
+        sounds.bgm.volume = document.getElementById('volSlider').value;
+        sounds.bgm.play();
+        
+        await initGame();
+    }
+
+    async function initGame() {
+        const p = document.getElementById('progress');
+        const updateProg = (val) => { p.style.width = val + '%'; };
+
+        const loadAndSlice = async (src, rows, cols, targetArray) => {
+            const img = new Image();
+            img.src = src;
+            await img.decode();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const w = img.width / cols;
+            const h = img.height / rows;
+            for(let i=0; i < (rows * cols); i++) {
+                canvas.width = w; canvas.height = h;
+                ctx.drawImage(img, (i % cols) * w, Math.floor(i / cols) * h, w, h, 0, 0, w, h);
+                targetArray.push(canvas.toDataURL());
+            }
+        };
+
+        // Slice P50 (Tiles), A2 (Stage Rewards), A3 (Chest Rewards) - All 7x7
+        await loadAndSlice('P50.png', 7, 7, state.tiles);
+        updateProg(33);
+        await loadAndSlice('A2.png', 7, 7, state.rewardPool);
+        updateProg(66);
+        await loadAndSlice('A3.png', 7, 7, state.chestPool);
+        updateProg(100);
+
+        renderStage();
+    }
+
+    function renderStage() {
+        state.active = true;
+        const gameArea = document.getElementById('game-area');
+        gameArea.innerHTML = '';
+        let numTiles = Math.min(48, 20 + (state.stage * 2));
+        let selection = state.tiles.slice(0, numTiles / 2);
+        let deck = [...selection, ...selection].sort(() => Math.random() - 0.5);
+
+        deck.forEach((src) => {
+            const el = document.createElement('div');
+            el.className = 'tile';
+            el.style.backgroundImage = `url(${src})`;
+            el.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            el.style.top = Math.random() * (window.innerHeight - 200) + 'px';
+            el.onclick = () => handleTap(el, src);
+            gameArea.appendChild(el);
+        });
+        updateHUD();
+    }
+
+    let selected = [];
+    function handleTap(el, src) {
+        if(!state.active || selected.length >= 2 || el.style.visibility === 'hidden') return;
+        el.style.borderColor = '#fff';
+        selected.push({el, src});
+        playSound('ping');
+
+        if(selected.length === 2) {
+            state.active = false;
+            setTimeout(() => {
+                if(selected[0].src === selected[1].src) {
+                    selected.forEach(s => s.el.style.visibility = 'hidden');
+                    state.iq += 15;
+                    playSound('win');
+                    if(document.querySelectorAll('.tile:not([style*="visibility: hidden"])').length === 0) completeStage();
+                    else state.active = true;
+                } else {
+                    selected.forEach(s => s.el.style.borderColor = '#FFD700');
+                    state.lives--;
+                    state.iq = Math.max(50, state.iq - 5);
+                    if(state.lives <= 0) { alert("Game Over!"); location.reload(); }
+                    state.active = true;
+                }
+                selected = [];
+                updateHUD();
+                saveGame();
+            }, 600);
+        }
+    }
+
+    function completeStage() {
+        const piece = state.rewardPool[state.stage - 1] || state.rewardPool[0];
+        if(!state.library.includes(piece)) state.library.push(piece);
+        
+        // Award Key every 3 stages
+        if (state.stage % 3 === 0) {
+            state.keys++;
+            alert("Stage Clear! You earned a Treasure Key!");
+        }
+
+        state.stage++;
+        saveGame();
+        
+        const overlay = document.getElementById('overlay');
+        overlay.innerHTML = `<h2>Stage Reward</h2><img src="${piece}" style="max-width:90%; border:2px solid gold;" onclick="this.parentElement.style.display='none'; renderStage();">`;
+        overlay.style.display = 'flex';
+    }
+
+    // --- CHEST LOGIC ---
+    function showChests() {
+        if (state.keys <= 0) return alert("You need a Key to open treasures!");
+        state.active = false;
+        
+        // Cycle Logic: 2, 1, 3 (Indices 1, 0, 2)
+        const cycleOrder = [1, 0, 2];
+        const fifteenPos = cycleOrder[state.chestCycle % 3];
+        const rewards = [5, 10]; 
+        if (Math.random() > 0.5) rewards.reverse(); // Shuffle 5 and 10
+        
+        // Insert 15 at the cycle position
+        rewards.splice(fifteenPos, 0, 15);
+
+        let html = '<h1>Pick a Treasure Chest</h1><div style="display:flex; gap:20px; justify-content:center;">';
+        rewards.forEach((amt) => {
+            html += `<img src="Treasure.png" class="chest" onclick="openChest(${amt})">`;
+        });
+        html += '</div>';
+        
+        const overlay = document.getElementById('overlay');
+        overlay.innerHTML = html;
+        overlay.style.display = 'flex';
+    }
+
+    function openChest(count) {
+        playSound('creak');
+        state.keys--;
+        state.chestCycle++;
+        
+        // Pick random items from chestPool (A3.png)
+        let rewards = [...state.chestPool].sort(() => Math.random() - 0.5).slice(0, count);
+        rewards.forEach(pic => { if(!state.library.includes(pic)) state.library.push(pic); });
+        
+        saveGame();
+        updateHUD();
+        alert(`The chest creaks open... You found ${count} pieces from the A3 collection!`);
+        toggleLibrary();
+    }
+
+    function saveGame() {
+        db.set('stage', state.stage);
+        db.set('iq', state.iq);
+        db.set('library', state.library);
+        db.set('keys', state.keys);
+        db.set('chestCycle', state.chestCycle);
+        db.set('player', state.player);
+    }
+
+    function updateHUD() {
+        document.getElementById('iq').innerText = `IQ: ${state.iq}`;
+        document.getElementById('lives').innerText = `Lives: ${state.lives}`;
+        document.getElementById('stage').innerText = `Stage: ${state.stage}`;
+        document.getElementById('keys-display').innerText = `Keys: ${state.keys}`;
+    }
+
+    function playSound(type) { 
+        const s = sounds[type].cloneNode(); 
+        s.volume = document.getElementById('volSlider').value; 
+        s.play(); 
+    }
+
+    function updateVolume(val) { sounds.bgm.volume = val; }
+
+    function toggleLibrary() {
+        const overlay = document.getElementById('overlay');
+        if (overlay.style.display === 'flex' && !overlay.innerHTML.includes('Library')) { overlay.style.display = 'none'; return; }
+        
+        let html = '<h1>Library</h1><div id="lib-grid">';
+        state.library.forEach(src => html += `<img src="${src}" onclick="showFull('${src}')">`);
+        html += '</div><br><button onclick="closeOverlay()">Close</button>';
+        overlay.innerHTML = html;
+        overlay.style.display = 'flex';
+    }
+
+    function closeOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        if (!state.active) renderStage(); // Resume game if it was paused
+    }
+
+    function showFull(src) { 
+        document.getElementById('overlay').innerHTML = `<img src="${src}" style="max-width:95%; max-height:95%;" onclick="toggleLibrary()">`; 
+    }
+</script>
+</body>
+</html>
