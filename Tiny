@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AZRA'S GARDEN - COMPLETE ARCHITECTURE</title>
+    <style>
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; touch-action: none; }
+        #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #hud { position: fixed; top: 0; width: 100%; height: 60px; background: #1a1a1a; display: none; justify-content: space-around; align-items: center; z-index: 100; border-bottom: 3px solid #FFD700; }
+        #game-viewport { position: relative; width: 100vw; height: calc(100vh - 60px); margin-top: 60px; overflow: hidden; }
+        .tile { position: absolute; width: 12vw; height: 12vw; max-width: 100px; max-height: 100px; border: 3px solid #FFD700; border-radius: 8px; cursor: pointer; transition: all 0.2s; background-size: cover; background-position: center; box-shadow: inset 0 0 10px #000; }
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 500; display: none; flex-direction: column; justify-content: center; align-items: center; }
+        #lib-grid { width: 90vw; height: 70vh; overflow-y: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 20px; }
+        #lib-grid img { width: 100%; height: auto; border: 1px solid #555; }
+        .ui-btn { padding: 15px 30px; background: #FFD700; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h1>AZRA'S GARDEN</h1>
+    <button class="ui-btn" onclick="Engine.init()">ENTER GARDEN</button>
+</div>
+
+<div id="hud">
+    <div id="stat-iq">IQ: 100</div>
+    <div id="stat-score">Score: 0</div>
+    <input type="range" id="vol" min="0" max="1" step="0.1" value="0.5" oninput="Engine.updateVolume(this.value)">
+    <button class="ui-btn" onclick="UI.toggleLibrary()">LIBRARY</button>
+</div>
+
+<div id="game-viewport"></div>
+<div id="overlay"></div>
+
+<script>
+    const Engine = {
+        state: {
+            stage: parseInt(localStorage.getItem('azraStage')) || 1,
+            score: parseInt(localStorage.getItem('azraScore')) || 0,
+            iqHistory: JSON.parse(localStorage.getItem('azraIQHistory') || '[]'),
+            library: JSON.parse(localStorage.getItem('azraLibrary') || '[]'),
+            active: false,
+            startTime: 0,
+            errors: 0,
+            assets: []
+        },
+
+        sounds: { ping: new Audio('ping.wav'), win: new Audio('success.mp3'), bgm: new Audio('bgm.mp3') },
+
+        async init() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('hud').style.display = 'flex';
+            this.sounds.bgm.loop = true;
+            this.sounds.bgm.play();
+            document.addEventListener("visibilitychange", () => document.hidden ? this.sounds.bgm.pause() : this.sounds.bgm.play());
+            await this.loadAssets();
+            this.render();
+        },
+
+        async loadAssets() {
+            const img = new Image();
+            img.src = 'assets.png';
+            await img.decode();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const cols = 5, rows = 4, w = img.width / cols, h = img.height / rows;
+            canvas.width = w; canvas.height = h;
+            for(let i = 0; i < cols * rows; i++) {
+                ctx.clearRect(0,0,w,h);
+                ctx.drawImage(img, (i%cols)*w, Math.floor(i/cols)*h, w, h, 0,0,w,h);
+                this.state.assets.push(canvas.toDataURL());
+            }
+        },
+
+        updateVolume(val) {
+            Object.values(this.sounds).forEach(s => s.volume = val);
+        },
+
+        save() {
+            try {
+                localStorage.setItem('azraStage', this.state.stage);
+                localStorage.setItem('azraScore', this.state.score);
+                localStorage.setItem('azraIQHistory', JSON.stringify(this.state.iqHistory.slice(-50)));
+                localStorage.setItem('azraLibrary', JSON.stringify(this.state.library));
+            } catch(e) { console.error("Storage Full"); }
+        },
+
+        render() {
+            this.state.active = true;
+            this.state.startTime = Date.now();
+            const viewport = document.getElementById('game-viewport');
+            viewport.innerHTML = '';
+            const deck = [...this.state.assets.slice(0,10), ...this.state.assets.slice(0,10)].sort(() => Math.random() - 0.5);
+            deck.forEach((src, idx) => {
+                const el = document.createElement('div');
+                el.className = 'tile';
+                el.style.backgroundImage = `url(${src})`;
+                el.style.left = (Math.random() * 80) + 'vw';
+                el.style.top = (Math.random() * 70) + 'vh';
+                el.dataset.id = idx % 10;
+                el.onclick = () => this.handleTap(el);
+                viewport.appendChild(el);
+            });
+        },
+
+        selected: [],
+        handleTap(el) {
+            if(!this.state.active || this.selected.length >= 2 || el.style.visibility === 'hidden') return;
+            el.style.boxShadow = '0 0 20px #FFF';
+            this.selected.push(el);
+            this.sounds.ping.currentTime = 0; this.sounds.ping.play();
+
+            if(this.selected.length === 2) {
+                this.state.active = false;
+                setTimeout(() => {
+                    if(this.selected[0].dataset.id === this.selected[1].dataset.id) {
+                        this.selected.forEach(s => s.style.visibility = 'hidden');
+                        this.state.score += 50;
+                        this.sounds.win.currentTime = 0; this.sounds.win.play();
+                        if(document.querySelectorAll('.tile:not([style*="visibility: hidden"])').length === 0) this.completeStage();
+                    } else {
+                        this.selected.forEach(s => s.style.boxShadow = 'none');
+                        this.state.errors++;
+                    }
+                    this.selected = [];
+                    this.state.active = true;
+                    document.getElementById('stat-score').innerText = `Score: ${this.state.score}`;
+                }, 500);
+            }
+        },
+
+        completeStage() {
+            const time = (Date.now() - this.state.startTime) / 1000;
+            const iq = Math.round(Math.max(50, 220 - (time/0.5)) - (this.state.errors * 5));
+            this.state.iqHistory.push(iq);
+            document.getElementById('stat-iq').innerText = `IQ: ${Math.round(this.state.iqHistory.reduce((a,b)=>a+b,0)/this.state.iqHistory.length)}`;
+            this.state.stage++;
+            this.state.library.push(this.state.assets[0]);
+            this.save();
+            UI.showOverlay(`<h1>Stage ${this.state.stage-1} Complete</h1><button class="ui-btn" onclick="Engine.render(); document.getElementById('overlay').style.display='none';">NEXT STAGE</button>`);
+        }
+    };
+
+    const UI = {
+        showOverlay(html) { const o = document.getElementById('overlay'); o.innerHTML = html; o.style.display = 'flex'; },
+        toggleLibrary() {
+            const o = document.getElementById('overlay');
+            if(o.style.display === 'flex') { o.style.display = 'none'; return; }
+            let html = '<div id="lib-grid">';
+            Engine.state.library.forEach(src => html += `<img src="${src}">`);
+            html += '</div><button class="ui-btn" onclick="document.getElementById(\'overlay\').style.display=\'none\'">CLOSE</button>';
+            this.showOverlay(html);
+        }
+    };
+</script>
+</body>
+</html>
