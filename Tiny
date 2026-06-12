@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AZRA'S GARDEN - FINAL</title>
+    <title>AZRA'S GARDEN - CUMULATIVE VERSION</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; touch-action: none; }
         #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        #hud { position: fixed; top: 0; width: 100%; height: 60px; background: #1a1a1a; display: none; justify-content: space-around; align-items: center; z-index: 100; border-bottom: 3px solid #FFD700; }
+        #hud { position: fixed; top: 0; width: 100%; height: 60px; background: #222; display: none; justify-content: space-around; align-items: center; z-index: 100; border-bottom: 3px solid #FFD700; }
         #game-viewport { position: relative; width: 100vw; height: calc(100vh - 60px); margin-top: 60px; overflow: hidden; }
         .tile { position: absolute; width: 12vw; height: 12vw; max-width: 100px; max-height: 100px; border: 3px solid #FFD700; border-radius: 8px; cursor: pointer; transition: all 0.2s; background-size: cover; background-position: center; box-shadow: inset 0 0 10px #000; }
         #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 500; display: none; flex-direction: column; justify-content: center; align-items: center; }
         #lib-grid { width: 90vw; height: 70vh; overflow-y: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 20px; }
         #lib-grid img { width: 100%; height: auto; border: 1px solid #555; }
-        .ui-btn { padding: 15px 30px; background: #FFD700; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; margin: 10px; }
+        #loading-bar { width: 80%; height: 20px; border: 2px solid #fff; margin: 20px; }
+        #progress { width: 0%; height: 100%; background: #FFD700; }
+        .ui-btn { padding: 15px 30px; background: #FFD700; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -22,11 +24,13 @@
     <h1>AZRA'S GARDEN</h1>
     <input type="text" id="playerName" placeholder="Enter Name">
     <button class="ui-btn" onclick="Engine.init()">ENTER GARDEN</button>
+    <div id="loading-bar"><div id="progress"></div></div>
 </div>
 
 <div id="hud">
     <div id="stat-iq">IQ: 100</div>
     <div id="stat-score">Score: 0</div>
+    <input type="range" id="volSlider" min="0" max="1" step="0.1" value="0.5" oninput="Engine.updateVolume(this.value)">
     <button class="ui-btn" onclick="UI.toggleLibrary()">LIBRARY</button>
 </div>
 
@@ -38,11 +42,13 @@
         state: {
             stage: parseInt(localStorage.getItem('azraStage')) || 1,
             score: parseInt(localStorage.getItem('azraScore')) || 0,
-            iqHistory: JSON.parse(localStorage.getItem('azraIQHistory') || '[]'),
+            iq: parseInt(localStorage.getItem('azraIQ')) || 100,
+            lives: 3,
             library: JSON.parse(localStorage.getItem('azraLibrary') || '[]'),
             active: false,
             errors: 0,
-            assets: []
+            assets: [],
+            rewardPool: []
         },
         sounds: { ping: new Audio('ping.wav'), win: new Audio('success.mp3'), bgm: new Audio('bgm.mp3') },
 
@@ -54,29 +60,47 @@
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('hud').style.display = 'flex';
             this.sounds.bgm.loop = true;
-            this.sounds.bgm.play().catch(e => console.log("Audio requires interaction"));
+            this.updateVolume(document.getElementById('volSlider').value);
+            this.sounds.bgm.play();
             
             await this.loadAssets();
             this.render();
         },
 
         async loadAssets() {
-            const img = new Image(); img.src = 'assets.png';
-            await img.decode();
+            const p = document.getElementById('progress');
+            const img = new Image(); img.src = 'P50.png';
+            const img2 = new Image(); img2.src = 'A2.png';
+            
+            let loaded = 0;
+            const updateProg = () => { loaded++; p.style.width = (loaded * 50) + '%'; };
+            img.onload = updateProg; img2.onload = updateProg;
+            await Promise.all([img.decode(), img2.decode()]);
+            
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            const cols = 5, rows = 4, w = img.width / cols, h = img.height / rows;
-            for(let i = 0; i < cols * rows; i++) {
+            const w = img.width / 7, h = img.height / 7;
+            for(let i = 0; i < 49; i++) {
                 canvas.width = w; canvas.height = h;
-                ctx.drawImage(img, (i%cols)*w, Math.floor(i/cols)*h, w, h, 0,0,w,h);
+                ctx.drawImage(img, (i%7)*w, Math.floor(i/7)*h, w, h, 0,0,w,h);
                 this.state.assets.push(canvas.toDataURL());
             }
+            const rw = img2.width / 5, rh = img2.height / 5;
+            for(let i = 0; i < 25; i++) {
+                canvas.width = rw; canvas.height = rh;
+                ctx.drawImage(img2, (i%5)*rw, Math.floor(i/5)*rh, rw, rh, 0,0,w,h);
+                this.state.rewardPool.push(canvas.toDataURL());
+            }
+        },
+
+        updateVolume(val) {
+            Object.values(this.sounds).forEach(s => s.volume = val);
         },
 
         save() {
             localStorage.setItem('azraStage', this.state.stage);
             localStorage.setItem('azraScore', this.state.score);
-            localStorage.setItem('azraIQHistory', JSON.stringify(this.state.iqHistory));
+            localStorage.setItem('azraIQ', this.state.iq);
             localStorage.setItem('azraLibrary', JSON.stringify(this.state.library));
         },
 
@@ -84,14 +108,16 @@
             this.state.active = true;
             const viewport = document.getElementById('game-viewport');
             viewport.innerHTML = '';
-            const deck = [...this.state.assets.slice(0,10), ...this.state.assets.slice(0,10)].sort(() => Math.random() - 0.5);
+            let numTiles = 30 + (2 * (this.state.stage - 1));
+            let deck = [...this.state.assets.slice(0, numTiles/2), ...this.state.assets.slice(0, numTiles/2)].sort(() => Math.random() - 0.5);
+            
             deck.forEach((src, idx) => {
                 const el = document.createElement('div');
                 el.className = 'tile';
                 el.style.backgroundImage = `url(${src})`;
                 el.style.left = (Math.random() * 80) + 'vw';
                 el.style.top = (Math.random() * 70) + 'vh';
-                el.dataset.id = idx % 10;
+                el.dataset.src = src;
                 el.onclick = () => this.handleTap(el);
                 viewport.appendChild(el);
             });
@@ -107,27 +133,30 @@
             if(this.selected.length === 2) {
                 this.state.active = false;
                 setTimeout(() => {
-                    if(this.selected[0].dataset.id === this.selected[1].dataset.id) {
+                    if(this.selected[0].dataset.src === this.selected[1].dataset.src) {
                         this.selected.forEach(s => s.style.visibility = 'hidden');
                         this.state.score += 50;
+                        this.state.iq += 15;
                         this.sounds.win.currentTime = 0; this.sounds.win.play();
                         if(document.querySelectorAll('.tile:not([style*="visibility: hidden"])').length === 0) this.completeStage();
                     } else {
                         this.selected.forEach(s => s.style.boxShadow = 'none');
-                        this.state.errors++;
+                        this.state.iq = Math.max(50, this.state.iq - 5);
                     }
                     this.selected = [];
                     this.state.active = true;
+                    document.getElementById('stat-iq').innerText = `IQ: ${this.state.iq}`;
                     document.getElementById('stat-score').innerText = `Score: ${this.state.score}`;
                 }, 500);
             }
         },
 
         completeStage() {
+            const piece = this.state.rewardPool[this.state.stage - 1];
+            if(piece && !this.state.library.includes(piece)) this.state.library.push(piece);
             this.state.stage++;
-            this.state.library.push(this.state.assets[0]);
             this.save();
-            UI.showOverlay(`<h1>Stage ${this.state.stage-1} Complete</h1><button class="ui-btn" onclick="Engine.render(); document.getElementById('overlay').style.display='none';">NEXT STAGE</button>`);
+            UI.showOverlay(`<h1>Stage Complete</h1><img src="${piece}" style="width:200px;"><br><button class="ui-btn" onclick="Engine.render(); document.getElementById('overlay').style.display='none';">NEXT STAGE</button>`);
         }
     };
 
