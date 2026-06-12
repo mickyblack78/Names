@@ -9,7 +9,7 @@
         #hud { position: fixed; top: 0; width: 100%; height: 60px; background: #222; display: flex; justify-content: space-around; align-items: center; z-index: 100; border-bottom: 2px solid #FFD700; }
         #game-area { position: relative; width: 100vw; height: calc(100vh - 60px); margin-top: 60px; }
         .tile { position: absolute; width: 60px; height: 60px; border: 5px solid #FFD700; border-radius: 18px; cursor: pointer; transition: transform 0.2s; box-shadow: 4px 4px 10px rgba(0,0,0,0.5); }
-        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; display: none; justify-content: center; align-items: center; }
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; display: none; justify-content: center; align-items: center; flex-direction: column; }
     </style>
 </head>
 <body>
@@ -24,20 +24,16 @@
 <div id="overlay"></div>
 
 <script>
-    const state = { stage: 1, iq: 100, lives: 3, matched: [], tiles: [] };
+    const state = { stage: 1, iq: 100, lives: 3, tiles: [], pairsRemaining: 0, active: true, library: [] };
     const gameArea = document.getElementById('game-area');
 
-    // Initialize the game
     async function initGame() {
-        // Load master image and slice
         const img = new Image();
         img.src = 'P50.png';
         await img.decode();
-        
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const w = img.width / 7, h = img.height / 7;
-        
         for(let i=0; i<49; i++) {
             canvas.width = w; canvas.height = h;
             ctx.drawImage(img, (i%7)*w, Math.floor(i/7)*h, w, h, 0, 0, w, h);
@@ -47,12 +43,14 @@
     }
 
     function renderStage() {
+        state.active = true;
         gameArea.innerHTML = '';
-        let numTiles = 10 + (4 * state.stage);
+        let numTiles = 30 + (2 * (state.stage - 1));
+        state.pairsRemaining = numTiles / 2;
         let selection = state.tiles.slice(0, numTiles/2);
         let deck = [...selection, ...selection].sort(() => Math.random() - 0.5);
 
-        deck.forEach((src, idx) => {
+        deck.forEach((src) => {
             const el = document.createElement('div');
             el.className = 'tile';
             el.style.backgroundImage = `url(${src})`;
@@ -62,23 +60,29 @@
             el.onclick = () => handleTap(el, src);
             gameArea.appendChild(el);
         });
+        document.getElementById('stage').innerText = `Stage: ${state.stage}`;
     }
 
     let selected = [];
     function handleTap(el, src) {
-        if(selected.length >= 2) return;
+        if(!state.active || selected.length >= 2 || el.style.visibility === 'hidden') return;
         el.style.borderColor = '#fff';
         selected.push({el, src});
         
         if(selected.length === 2) {
+            state.active = false;
             setTimeout(() => {
                 if(selected[0].src === selected[1].src) {
                     selected.forEach(s => s.el.style.visibility = 'hidden');
                     state.iq += 15;
+                    state.pairsRemaining--;
+                    if(state.pairsRemaining === 0) completeStage();
+                    else state.active = true;
                 } else {
                     selected.forEach(s => s.el.style.borderColor = '#FFD700');
                     state.lives--;
                     state.iq = Math.max(50, state.iq - 5);
+                    state.active = true;
                 }
                 selected = [];
                 updateHUD();
@@ -86,15 +90,26 @@
         }
     }
 
+    function completeStage() {
+        const overlay = document.getElementById('overlay');
+        overlay.innerHTML = '<h1>Stage Complete!</h1><p>Adding to Library...</p>';
+        overlay.style.display = 'flex';
+        setTimeout(() => {
+            overlay.style.display = 'none';
+            state.stage++;
+            renderStage();
+        }, 5000);
+    }
+
     function updateHUD() {
         document.getElementById('iq').innerText = `IQ: ${state.iq}`;
-        if(state.lives <= 0) alert("Game Over! Restarting...");
+        if(state.lives <= 0) { alert("Game Over! Restarting..."); location.reload(); }
     }
 
     function toggleLibrary() {
         const overlay = document.getElementById('overlay');
-        overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
         overlay.innerHTML = '<h1>Library</h1><button onclick="toggleLibrary()">Close</button>';
+        overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
     }
 
     initGame();
