@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AZRA'S GARDEN - COMPLETE ARCHITECTURE</title>
+    <title>AZRA'S GARDEN - FINAL</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; touch-action: none; }
         #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
@@ -13,20 +13,20 @@
         #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 500; display: none; flex-direction: column; justify-content: center; align-items: center; }
         #lib-grid { width: 90vw; height: 70vh; overflow-y: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 20px; }
         #lib-grid img { width: 100%; height: auto; border: 1px solid #555; }
-        .ui-btn { padding: 15px 30px; background: #FFD700; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; }
+        .ui-btn { padding: 15px 30px; background: #FFD700; border: none; border-radius: 5px; color: #000; font-weight: bold; cursor: pointer; margin: 10px; }
     </style>
 </head>
 <body>
 
 <div id="start-screen">
     <h1>AZRA'S GARDEN</h1>
+    <input type="text" id="playerName" placeholder="Enter Name">
     <button class="ui-btn" onclick="Engine.init()">ENTER GARDEN</button>
 </div>
 
 <div id="hud">
     <div id="stat-iq">IQ: 100</div>
     <div id="stat-score">Score: 0</div>
-    <input type="range" id="vol" min="0" max="1" step="0.1" value="0.5" oninput="Engine.updateVolume(this.value)">
     <button class="ui-btn" onclick="UI.toggleLibrary()">LIBRARY</button>
 </div>
 
@@ -41,54 +41,47 @@
             iqHistory: JSON.parse(localStorage.getItem('azraIQHistory') || '[]'),
             library: JSON.parse(localStorage.getItem('azraLibrary') || '[]'),
             active: false,
-            startTime: 0,
             errors: 0,
             assets: []
         },
-
         sounds: { ping: new Audio('ping.wav'), win: new Audio('success.mp3'), bgm: new Audio('bgm.mp3') },
 
         async init() {
+            const name = document.getElementById('playerName').value;
+            if(!name) return alert("Enter a name!");
+            localStorage.setItem('azraPlayer', name);
+            
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('hud').style.display = 'flex';
             this.sounds.bgm.loop = true;
-            this.sounds.bgm.play();
-            document.addEventListener("visibilitychange", () => document.hidden ? this.sounds.bgm.pause() : this.sounds.bgm.play());
+            this.sounds.bgm.play().catch(e => console.log("Audio requires interaction"));
+            
             await this.loadAssets();
             this.render();
         },
 
         async loadAssets() {
-            const img = new Image();
-            img.src = 'assets.png';
+            const img = new Image(); img.src = 'assets.png';
             await img.decode();
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             const cols = 5, rows = 4, w = img.width / cols, h = img.height / rows;
-            canvas.width = w; canvas.height = h;
             for(let i = 0; i < cols * rows; i++) {
-                ctx.clearRect(0,0,w,h);
+                canvas.width = w; canvas.height = h;
                 ctx.drawImage(img, (i%cols)*w, Math.floor(i/cols)*h, w, h, 0,0,w,h);
                 this.state.assets.push(canvas.toDataURL());
             }
         },
 
-        updateVolume(val) {
-            Object.values(this.sounds).forEach(s => s.volume = val);
-        },
-
         save() {
-            try {
-                localStorage.setItem('azraStage', this.state.stage);
-                localStorage.setItem('azraScore', this.state.score);
-                localStorage.setItem('azraIQHistory', JSON.stringify(this.state.iqHistory.slice(-50)));
-                localStorage.setItem('azraLibrary', JSON.stringify(this.state.library));
-            } catch(e) { console.error("Storage Full"); }
+            localStorage.setItem('azraStage', this.state.stage);
+            localStorage.setItem('azraScore', this.state.score);
+            localStorage.setItem('azraIQHistory', JSON.stringify(this.state.iqHistory));
+            localStorage.setItem('azraLibrary', JSON.stringify(this.state.library));
         },
 
         render() {
             this.state.active = true;
-            this.state.startTime = Date.now();
             const viewport = document.getElementById('game-viewport');
             viewport.innerHTML = '';
             const deck = [...this.state.assets.slice(0,10), ...this.state.assets.slice(0,10)].sort(() => Math.random() - 0.5);
@@ -131,10 +124,6 @@
         },
 
         completeStage() {
-            const time = (Date.now() - this.state.startTime) / 1000;
-            const iq = Math.round(Math.max(50, 220 - (time/0.5)) - (this.state.errors * 5));
-            this.state.iqHistory.push(iq);
-            document.getElementById('stat-iq').innerText = `IQ: ${Math.round(this.state.iqHistory.reduce((a,b)=>a+b,0)/this.state.iqHistory.length)}`;
             this.state.stage++;
             this.state.library.push(this.state.assets[0]);
             this.save();
@@ -147,7 +136,7 @@
         toggleLibrary() {
             const o = document.getElementById('overlay');
             if(o.style.display === 'flex') { o.style.display = 'none'; return; }
-            let html = '<div id="lib-grid">';
+            let html = '<h1>Library</h1><div id="lib-grid">';
             Engine.state.library.forEach(src => html += `<img src="${src}">`);
             html += '</div><button class="ui-btn" onclick="document.getElementById(\'overlay\').style.display=\'none\'">CLOSE</button>';
             this.showOverlay(html);
