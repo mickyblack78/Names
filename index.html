@@ -111,7 +111,7 @@
             el.className = 'tile';
             el.style.backgroundImage = `url(${src})`;
             el.style.left = Math.random() * (window.innerWidth - 80) + 'px';
-            el.style.top = Math.random() * (window.innerHeight - 150) + 'px';
+            el.style.top = Math.random() * (window.innerHeight - 200) + 'px';
             el.onclick = () => handleTap(el, src);
             gameArea.appendChild(el);
         });
@@ -132,7 +132,7 @@
                     selected.forEach(s => s.el.style.visibility = 'hidden');
                     state.iq += 15;
                     playSound('win');
-                    if(document.querySelectorAll('.tile[style*="visibility: hidden"]').length === 0) completeStage();
+                    if(document.querySelectorAll('.tile:not([style*="visibility: hidden"])').length === 0) completeStage();
                     else state.active = true;
                 } else {
                     selected.forEach(s => s.el.style.borderColor = '#FFD700');
