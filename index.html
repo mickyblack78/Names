@@ -44,16 +44,22 @@
 <div id="overlay"></div>
 
 <script>
-    const state = { 
-        stage: parseInt(localStorage.getItem('azraStage')) || 1, 
-        iq: parseInt(localStorage.getItem('azraIQ')) || 100, 
-        lives: 3, 
-        tiles: [], 
-        rewardPool: [], 
-        library: JSON.parse(localStorage.getItem('azraLibrary') || '[]'), 
-        player: localStorage.getItem('azraPlayer') || '',
-        active: false 
-    };
+    const db = {
+    get: (k) => new Promise(r => {
+        let req = indexedDB.open("AzraDB", 1);
+        req.onupgradeneeded = () => req.result.createObjectStore("store");
+        req.onsuccess = () => {
+            let t = req.result.transaction("store", "readonly").objectStore("store").get(k);
+            t.onsuccess = () => r(t.result);
+        };
+    }),
+    set: (k, v) => {
+        let req = indexedDB.open("AzraDB", 1);
+        req.onupgradeneeded = () => req.result.createObjectStore("store");
+        req.onsuccess = () => req.result.transaction("store", "readwrite").objectStore("store").put(v, k);
+    }
+};
+    let state = { stage: 1, iq: 100, lives: 3, tiles: [], rewardPool: [], library: [], player: '', active: false };
     const sounds = { bgm: new Audio('bgm.mp3'), ping: new Audio('ping.wav'), win: new Audio('success.mp3') };
 
     async function startGame() {
@@ -73,6 +79,10 @@
     }
 
     async function initGame() {
+        state.stage = await db.get('stage') || 1;
+state.iq = await db.get('iq') || 100;
+state.library = await db.get('library') || [];
+state.player = await db.get('player') || '';
         const p = document.getElementById('progress');
         const img = new Image(); img.src = 'P50.png';
         const img2 = new Image(); img2.src = 'A2.png';
@@ -159,12 +169,12 @@
         overlay.style.display = 'flex';
     }
 
-    // FIXED: Original function name restored
     function saveGame() {
-        localStorage.setItem('azraStage', state.stage);
-        localStorage.setItem('azraIQ', state.iq);
-        localStorage.setItem('azraLibrary', JSON.stringify(state.library));
-        localStorage.setItem('azraVolume', document.getElementById('volSlider').value);
+    db.set('stage', state.stage);
+    db.set('iq', state.iq);
+    db.set('library', state.library);
+    db.set('player', localStorage.getItem('azraPlayer'));
+    db.set('volume', document.getElementById('volSlider').value);
     }
     function playSound(type) { 
         const s = sounds[type].cloneNode(); 
