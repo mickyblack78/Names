@@ -161,7 +161,7 @@
                 }
                 state.selected = [];
                 updateHUD();
-            }, 500);
+            }, 200);
         }
     }
 
@@ -172,7 +172,6 @@
         if (state.stage % 3 === 0) state.keys++;
         
         state.stage++;
-        saveGame();
         
         const overlay = document.getElementById('overlay');
         overlay.innerHTML = `<h1>Stage Complete</h1><img src="${prize}" style="width:80%; border:2px solid gold;"><br><button onclick="closeOverlay()">Next Stage</button>`;
