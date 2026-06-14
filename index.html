@@ -5,39 +5,65 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AZRA'S GARDEN</title>
     <style>
-        body { background-image: url('star.png'); background-size: cover; background-attachment: fixed; background-color: #000; margin: 0; overflow: hidden; font-family: sans-serif; }
-        #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 300; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #FFD700; }
-        #hud { position: fixed; top: 0; width: 100%; height: 60px; background: #222; display: none; justify-content: space-around; align-items: center; z-index: 100; border-bottom: 2px solid #FFD700; color: #FFD700; }
-        #game-area { position: relative; width: 100vw; height: calc(100dvh - 60px); margin-top: 60px; overflow: hidden; display: none; }
-        .tile { position: absolute; width: 15vw; height: 15vw; border: 2px solid #FFD700; border-radius: 10px; cursor: pointer; transition: transform 0.2s; background-size: cover; background-position: center; }
-        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; display: none; justify-content: center; align-items: center; flex-direction: column; color: white; overflow-y: auto; padding: 20px; box-sizing: border-box; }
-        #lib-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 20px; width: 90vw; }
-        #lib-grid img { width: 100%; height: auto; border: 1px solid #555; }
-        #loading-bar { width: 80%; height: 10px; border: 1px solid #fff; margin-top: 20px; }
-        #progress { width: 0%; height: 100%; background: #FFD700; }
-        .chest { width: 100px; cursor: pointer; margin: 10px; }
+        body { background-color: #000; color: #FFD700; margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-image: url('star.png'); background-size: cover; }
+        
+        /* SCREENS */
+        .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 300; background: rgba(0,0,0,0.9); text-align: center; overflow-y: auto; }
+        #home-screen { display: flex; }
+        
+        /* UI ELEMENTS */
+        #hud { position: fixed; top: 0; width: 100%; height: 60px; background: #111; display: none; justify-content: space-around; align-items: center; z-index: 100; border-bottom: 2px solid #FFD700; }
+        #game-area { position: relative; width: 100vw; height: calc(100dvh - 60px); margin-top: 60px; display: none; }
+        .tile { position: absolute; width: 15vw; height: 15vw; border: 2px solid #FFD700; border-radius: 8px; cursor: pointer; transition: 0.2s; background-size: cover; background-position: center; }
+        
+        /* LIBRARY & OVERLAYS */
+        #lib-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 20px; width: 90%; }
+        #lib-grid img { width: 100%; border: 1px solid #444; border-radius: 5px; cursor: pointer; }
+        #full-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 500; display: none; justify-content: center; align-items: center; }
+        #full-view img { max-width: 95%; max-height: 95%; border: 2px solid gold; }
+
+        input, button, select { padding: 12px; margin: 8px; border-radius: 5px; border: 1px solid gold; background: #222; color: gold; font-size: 1rem; }
+        .stat-box { border: 1px solid #444; padding: 15px; margin: 10px; width: 80%; background: #111; border-radius: 10px; }
     </style>
 </head>
 <body>
 
-<div id="start-screen">
+<!-- HOME SCREEN -->
+<div id="home-screen" class="screen">
     <h1>AZRA'S GARDEN</h1>
-    <input type="text" id="playerName" placeholder="Enter name">
-    <button onclick="startGame()" style="margin-top:10px; padding:10px;">ENTER GARDEN</button>
-    <div id="loading-bar"><div id="progress"></div></div>
+    <div class="stat-box">
+        <input type="text" id="playerName" placeholder="Enter Gardener Name">
+        <button onclick="login()">LOGIN / LOAD PROFILE</button>
+        <p id="profile-status">No profile loaded</p>
+    </div>
+
+    <div id="menu-options" style="display:none;">
+        <div class="stat-box">
+            <p id="stats-display">Stage: 1 | IQ: 100 | Keys: 0</p>
+            <label>Difficulty (1-5):</label>
+            <input type="range" id="diffRange" min="1" max="5" value="1" oninput="state.difficulty = this.value; document.getElementById('diffVal').innerText = this.value">
+            <span id="diffVal">1</span>
+        </div>
+        
+        <button onclick="launchGame()" style="background: gold; color: black; font-weight: bold;">START GARDENING</button>
+        <button onclick="toggleLibrary()">OPEN LIBRARY</button>
+        <button onclick="showRules()">HOW TO PLAY</button>
+        <button onclick="logout()">LOGOUT</button>
+    </div>
 </div>
 
+<!-- HUD -->
 <div id="hud">
-    <div id="iq-display">IQ: 100</div>
-    <div id="lives-display">Lives: 3</div>
-    <div id="stage-display">Stage: 1</div>
-    <div id="keys-display" onclick="showChests()" style="border:1px solid gold; padding:5px; cursor:pointer;">Keys: 0</div>
-    <button onclick="toggleLibrary()">Library</button>
-    <input type="range" id="volSlider" min="0" max="1" step="0.1" value="0.5" oninput="updateVolume(this.value)">
+    <div id="iq-hud">IQ: 100</div>
+    <div id="stage-hud">Stage: 1</div>
+    <div id="keys-hud" onclick="showChests()" style="cursor:pointer; border: 1px solid gold; padding: 4px;">Keys: 0</div>
+    <button onclick="exitToHome()">HOME</button>
 </div>
 
+<!-- OVERLAYS -->
 <div id="game-area"></div>
-<div id="overlay"></div>
+<div id="overlay" class="screen"></div>
+<div id="full-view" onclick="this.style.display='none'"></div>
 
 <script>
     // --- DATABASE (LARGE STORAGE) ---
@@ -60,44 +86,57 @@
         }
     };
 
-    // --- STATE ---
+    // --- GLOBAL STATE ---
     let state = {
-        stage: 1, iq: 100, lives: 3, keys: 0, chestCycle: 0,
-        tiles: [], rewardPool: [], chestPool: [], library: [],
+        player: '', stage: 1, iq: 100, keys: 0, chestCycle: 0, difficulty: 1,
+        tiles: [], rewardPool: [], chestPool: [], library: [], 
         active: false, selected: []
     };
 
     const sounds = {
-        bgm: new Audio('bgm.mp3'),
-        ping: new Audio('ping.wav'),
-        win: new Audio('success.mp3'),
-        creak: new Audio('creak.mp3')
+        bgm: new Audio('bgm.mp3'), ping: new Audio('ping.wav'), 
+        win: new Audio('success.mp3'), creak: new Audio('creak.mp3')
     };
 
-    async function startGame() {
-        // Instant load from LocalStorage to prevent Stage 1 reset
-        state.stage = parseInt(localStorage.getItem('azraStage')) || 1;
-        state.iq = parseInt(localStorage.getItem('azraIQ')) || 100;
-        state.keys = parseInt(localStorage.getItem('azraKeys')) || 0;
-        state.chestCycle = parseInt(localStorage.getItem('azraCycle')) || 0;
+    // --- PROFILE SYSTEM ---
+    async function login() {
+        const name = document.getElementById('playerName').value;
+        if (!name) return alert("Enter a name!");
+        state.player = name;
 
-        // Large load from IndexedDB
-        state.library = await db.get('library') || [];
+        // Instant Load
+        state.stage = parseInt(localStorage.getItem(`azraStage_${name}`)) || 1;
+        state.iq = parseInt(localStorage.getItem(`azraIQ_${name}`)) || 100;
+        state.keys = parseInt(localStorage.getItem(`azraKeys_${name}`)) || 0;
+        state.chestCycle = parseInt(localStorage.getItem(`azraCycle_${name}`)) || 0;
+        
+        // Large Load
+        state.library = await db.get(`lib_${name}`) || [];
 
-        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('profile-status').innerText = `Welcome, ${name}!`;
+        document.getElementById('menu-options').style.display = 'block';
+        updateHUD();
+        saveGame();
+    }
+
+    function logout() { location.reload(); }
+
+    // --- GAME ENGINE ---
+    async function launchGame() {
+        document.getElementById('home-screen').style.display = 'none';
         document.getElementById('hud').style.display = 'flex';
         document.getElementById('game-area').style.display = 'block';
         
         sounds.bgm.loop = true;
-        sounds.bgm.volume = document.getElementById('volSlider').value;
         sounds.bgm.play();
-
+        
         await initAssets();
         renderStage();
     }
 
     async function initAssets() {
-        const p = document.getElementById('progress');
+        state.tiles = []; state.rewardPool = []; state.chestPool = [];
+        
         const loadSlice = async (file, rows, cols, arr) => {
             const img = new Image(); img.src = file;
             await img.decode();
@@ -111,9 +150,15 @@
             }
         };
 
-        await loadSlice('P50.png', 7, 7, state.tiles); p.style.width = '33%';
-        await loadSlice('A2.png', 5, 5, state.rewardPool); p.style.width = '66%';
-        await loadSlice('A3.png', 7, 7, state.chestPool); p.style.width = '100%';
+        // Prize sheet based on milestones
+        let prizeFile = 'A2.png';
+        if (state.stage > 75) prizeFile = 'a2a3.png';
+        else if (state.stage > 50) prizeFile = 'a2a2.png';
+        else if (state.stage > 25) prizeFile = 'a2a1.png';
+
+        await loadSlice('P50.png', 7, 7, state.tiles);
+        await loadSlice(prizeFile, 5, 5, state.rewardPool);
+        await loadSlice('A3.png', 7, 7, state.chestPool);
     }
 
     function renderStage() {
@@ -122,8 +167,13 @@
         const area = document.getElementById('game-area');
         area.innerHTML = '';
         
-        let count = Math.min(48, 12 + (state.stage * 2));
-        let deck = state.tiles.slice(0, count/2);
+        // Difficulty Logic
+        let baseTiles = 8 + (state.difficulty * 4);
+        let count = Math.min(70, baseTiles + (state.stage * 2));
+        if (count % 2 !== 0) count++;
+
+        // Random Selection (Reduce Repetition)
+        let deck = [...state.tiles].sort(() => Math.random() - 0.5).slice(0, count/2);
         deck = [...deck, ...deck].sort(() => Math.random() - 0.5);
 
         deck.forEach(src => {
@@ -140,7 +190,7 @@
 
     function handleTap(el, src) {
         if (!state.active || state.selected.length >= 2 || el.style.visibility === 'hidden') return;
-        el.style.borderColor = "#fff";
+        el.style.border = "2px solid white";
         state.selected.push({el, src});
         playSnd('ping');
 
@@ -154,95 +204,103 @@
                     if (document.querySelectorAll('.tile:not([style*="hidden"])').length === 0) completeStage();
                     else state.active = true;
                 } else {
-                    state.selected.forEach(s => s.el.style.borderColor = "gold");
-                    state.lives--;
-                    if (state.lives <= 0) { alert("Game Over!"); location.reload(); }
+                    state.selected.forEach(s => s.el.style.border = "2px solid gold");
                     state.active = true;
                 }
                 state.selected = [];
                 updateHUD();
-            }, 200);
+            }, 300); // Snappy 300ms delay
         }
     }
 
     function completeStage() {
-        const prize = state.rewardPool[(state.stage - 1) % state.rewardPool.length];
+        const prize = state.rewardPool[(state.stage - 1) % 25];
         if(!state.library.includes(prize)) state.library.push(prize);
-        
         if (state.stage % 3 === 0) state.keys++;
         
         state.stage++;
+        saveGame();
         
         const overlay = document.getElementById('overlay');
-        overlay.innerHTML = `<h1>Stage Complete</h1><img src="${prize}" style="width:80%; border:2px solid gold;"><br><button onclick="closeOverlay()">Next Stage</button>`;
+        overlay.innerHTML = `<h1>STAGE ${state.stage-1} CLEAR</h1><img src="${prize}" style="width:70%; border:2px solid gold;"><p>Added to Library</p><button onclick="exitToHome()">RETURN TO HOME</button>`;
         overlay.style.display = 'flex';
     }
 
+    // --- CHEST SYSTEM (NO DUPLICATES) ---
     function showChests() {
-        if (state.keys <= 0) return alert("Need a key!");
-        const cycle = [1, 0, 2]; // 2-1-3 Logic (Middle, Left, Right)
+        if (state.keys <= 0) return alert("No Keys!");
+        state.active = false;
+        const cycle = [1, 0, 2];
         const pos15 = cycle[state.chestCycle % 3];
-        const options = [5, 10];
-        if(Math.random() > 0.5) options.reverse();
+        const options = [5, 10]; if(Math.random() > 0.5) options.reverse();
         options.splice(pos15, 0, 15);
 
-        let html = '<h1>Pick a Chest</h1><div style="display:flex;">';
-        options.forEach(amt => {
-            html += `<img src="Treasure.png" class="chest" onclick="openChest(${amt})">`;
-        });
+        let html = '<h1>PICK A CHEST</h1><div style="display:flex;">';
+        options.forEach(amt => html += `<img src="Treasure.png" class="chest" onclick="openChest(${amt})">`);
         document.getElementById('overlay').innerHTML = html + '</div>';
         document.getElementById('overlay').style.display = 'flex';
     }
 
     function openChest(amt) {
         playSnd('creak');
-        state.keys--;
-        state.chestCycle++;
-        let finds = [...state.chestPool].sort(() => Math.random() - 0.5).slice(0, amt);
+        state.keys--; state.chestCycle++;
+        
+        // Prioritize missing pieces
+        let missing = state.chestPool.filter(pic => !state.library.includes(pic));
+        let pool = missing.length > 0 ? missing : state.chestPool;
+        let finds = [...pool].sort(() => Math.random() - 0.5).slice(0, amt);
+        
         finds.forEach(f => { if(!state.library.includes(f)) state.library.push(f); });
         saveGame();
-        alert(`Found ${amt} pieces!`);
-        toggleLibrary();
+        alert(`Unlocked ${finds.length} new patterns!`);
+        exitToHome();
     }
 
+    // --- UTILS ---
     function saveGame() {
-        // Instant numbers
-        localStorage.setItem('azraStage', state.stage);
-        localStorage.setItem('azraIQ', state.iq);
-        localStorage.setItem('azraKeys', state.keys);
-        localStorage.setItem('azraCycle', state.chestCycle);
-        // Large library
-        db.set('library', state.library);
+        const n = state.player;
+        localStorage.setItem(`azraStage_${n}`, state.stage);
+        localStorage.setItem(`azraIQ_${n}`, state.iq);
+        localStorage.setItem(`azraKeys_${n}`, state.keys);
+        localStorage.setItem(`azraCycle_${n}`, state.chestCycle);
+        db.set(`lib_${n}`, state.library);
     }
 
     function updateHUD() {
-        document.getElementById('iq-display').innerText = `IQ: ${state.iq}`;
-        document.getElementById('lives-display').innerText = `Lives: ${state.lives}`;
-        document.getElementById('stage-display').innerText = `Stage: ${state.stage}`;
-        document.getElementById('keys-display').innerText = `Keys: ${state.keys}`;
+        const stats = `Stage: ${state.stage} | IQ: ${state.iq} | Keys: ${state.keys}`;
+        document.getElementById('stats-display').innerText = stats;
+        document.getElementById('iq-hud').innerText = `IQ: ${state.iq}`;
+        document.getElementById('stage-hud').innerText = `Stage: ${state.stage}`;
+        document.getElementById('keys-hud').innerText = `Keys: ${state.keys}`;
     }
 
     function toggleLibrary() {
         const over = document.getElementById('overlay');
-        if (over.style.display === 'flex' && over.innerHTML.includes('Library')) { over.style.display = 'none'; return; }
-        let html = '<h1>Library</h1><div id="lib-grid">';
-        state.library.forEach(img => html += `<img src="${img}">`);
-        over.innerHTML = html + '</div><button onclick="closeOverlay()">Close</button>';
         over.style.display = 'flex';
+        let html = '<h1>LIBRARY</h1><div id="lib-grid">';
+        state.library.forEach(img => html += `<img src="${img}" onclick="viewFull('${img}')">`);
+        over.innerHTML = html + '</div><button onclick="document.getElementById(\'overlay\').style.display=\'none\'">CLOSE</button>';
     }
 
-    function closeOverlay() {
+    function viewFull(src) {
+        const v = document.getElementById('full-view');
+        v.innerHTML = `<img src="${src}">`;
+        v.style.display = 'flex';
+    }
+
+    function exitToHome() {
         document.getElementById('overlay').style.display = 'none';
-        if (state.active === false) renderStage();
+        document.getElementById('game-area').style.display = 'none';
+        document.getElementById('hud').style.display = 'none';
+        document.getElementById('home-screen').style.display = 'flex';
+        updateHUD();
     }
 
-    function playSnd(t) {
-        let s = sounds[t].cloneNode();
-        s.volume = document.getElementById('volSlider').value;
-        s.play();
-    }
+    function playSnd(t) { let s = sounds[t].cloneNode(); s.volume = 0.5; s.play(); }
 
-    function updateVolume(v) { sounds.bgm.volume = v; }
+    function showRules() {
+        alert("RULES:\n1. Match pairs of tiles to clear the garden.\n2. Earn prizes for every stage.\n3. Every 3 stages earn a KEY.\n4. Use Keys on the HUD to unlock chests for rare A3 patterns.\n5. Difficulty affects how many tiles spawn.");
+    }
 </script>
 </body>
 </html>
